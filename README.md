@@ -1,5 +1,5 @@
-#Bird flocking simulation using Boids
-##Engineering fundamentals assessment project
+# Bird flocking simulation using Boids
+## Engineering fundamentals assessment project
 
 The Boids algorithm is comprised of three central behavioural traits:
 

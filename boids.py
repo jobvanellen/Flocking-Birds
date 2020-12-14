@@ -9,6 +9,8 @@ num_boids = 50
 time = 1000 #seconds
 dt = 0.001 #1 millisecond
 
+boids = []
+
 # defining our boids
 class Boid:
     def __init__(self):
@@ -24,22 +26,21 @@ def init_boids():
 def draw_boids():
     pass
 
-def move_boids(boids):
+def move_boids():
     for b in boids:
-        cohesion(b, boids)
-        separation(b, boids)
-        alignment(b, boids)
+        cohesion(b)
+        separation(b)
+        alignment(b)
 
 # basic ruleset
-def cohesion(boid, boids):
+def cohesion(boid):
     pass
 
-def separation(boid, boids):
+def separation(boid):
     pass
 
-def alignment(boid, boids):
+def alignment(boid):
     pass
-
 
 
 def main():
@@ -49,7 +50,7 @@ def main():
     t=0.0
 
     while t < time:
-        move_boids(boids)
+        move_boids()
         
         t = t+dt
 

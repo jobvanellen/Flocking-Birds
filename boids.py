@@ -61,17 +61,19 @@ def move_boids():
         b.velocity = b.velocity + (v1 + v2 + v3 + v4)*dt
         b.position = b.position + b.velocity*dt
 
+        # old boundary code
         #limits = [x_size, y_size, z_size]
         #for i in range(3):
         #    b.position[i] = b.position[i] % limits[i]
 
 # basic ruleset #
 # boids try to fly to the centre of mass of neighbouring boids
+# metre/second/pos_diff
 def cohesion(current_boid):
     v = np.zeros(3)
     for b in boids:
         if b != current_boid:
-            v = v + b.position
+            v = v + b.position - current_boid.position
         v = v/(num_boids-1)
     return v
 

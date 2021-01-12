@@ -21,8 +21,8 @@ x_size = 100
 y_size = 100
 z_size = 100
 num_boids = 50
-time = 1000 # seconds
-dt = .5 # seconds
+time = 1000.0 # seconds
+dt = .1 # seconds
 
 boids = []
 
@@ -78,7 +78,7 @@ def move_boids():
 # determines which boids are within current_boid's range of perception
 def determine_neghbourhood(current_boid):
     neighbourhood = []
-    range = 5
+    range = 20
     for b in boids:
         if b != current_boid:
             #within range for x AND y AND z
@@ -143,11 +143,11 @@ def bound_position(current_boid):
 ## helper functions
 # checks if boid is within range r of other boid
 def in_range(b1, b2, r):
-    if abs(b1.position[0]-b2.position[0] > r):
+    if abs(b1.position[0]-b2.position[0]) > r:
         return False
-    if abs(b1.position[1]-b2.position[1] > r):
+    if abs(b1.position[1]-b2.position[1]) > r:
         return False
-    if abs(b1.position[2]-b2.position[2] > r):
+    if abs(b1.position[2]-b2.position[2]) > r:
         return False
     return True
 
@@ -162,7 +162,9 @@ def main():
     t=0.0
     while t < time:
         move_boids()
-        draw_boids()
+        print(round(t,2))
+        if round(t, 2)%1.0 == 0.0:
+            draw_boids()
         t = t+dt
 
 if __name__ == "__main__":

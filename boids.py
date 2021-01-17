@@ -17,9 +17,9 @@ import matplotlib.pyplot as plt
 
 ## simulation settings
 # size of field
-x_size = 100
-y_size = 100
-z_size = 100
+x_size = 200
+y_size = 200
+z_size = 200
 
 num_boids = 50
 time = 1000.0 # seconds, total simulation time
@@ -27,8 +27,11 @@ dt = .1 # seconds, simulation timestep
 plot_interval = 1.0 # seconds
 
 boids = []
+goal = np.ones(3)*x_size/2
+print(goal)
 
-scatter = False # allow for scattering behaviour
+
+disperse = False # allow for scattering behaviour if true
 
 # defining our boids
 class Boid:
@@ -55,6 +58,7 @@ def init_boids():
 def draw_boids(t):
     ax.clear()
     ax.set(xlim=(-10,x_size+10), ylim=(-10,y_size+10), zlim=(-10,z_size+10))
+    ax.scatter(goal[0], goal[1], goal[2], color="green")
     for b in boids:
         ax.quiver(b.position[0], b.position[1], b.position[2],\
             b.velocity[0],b.velocity[1],b.velocity[2], length=4, normalize=True)
@@ -71,6 +75,10 @@ def move_boids():
     m2 = 1
     m3 = 1
     m4 = 1
+    m5 = 1
+
+    if disperse:
+        m1 = m1*-1
 
     for b in boids:
         # determine boids' neighbourhood'
@@ -80,14 +88,18 @@ def move_boids():
         v2 = m2 * separation(b)
         v3 = m3 * alignment(b)
         v4 = m4 * bound_position(b)
-        b.velocity = b.velocity + (v1 + v2 + v3 + v4)*dt
+        v5 = m5 * flock_to_goal(b)
+
+
+
+        b.velocity = b.velocity + (v1 + v2 + v3 + v4 + v5)*dt
         b.velocity = limit_velocity(b)
         b.position = b.position + b.velocity*dt
 
 # determines which boids are within current_boid's range of perception
 def determine_neighbourhood(current_boid):
     neighbourhood = []
-    range = 10
+    range = 20
     for b in boids:
         if b != current_boid:
             #within range for x AND y AND z
@@ -100,26 +112,29 @@ def determine_neighbourhood(current_boid):
 # metre/second/pos_diff
 def cohesion(current_boid):
     v = np.zeros(3)
-    for b in current_boid.neighbourhood:
-        v = np.add(v,b.position)
-        v = np.divide(v,(len(current_boid.neighbourhood)))
-    return (v - current_boid.position) / 50
+    if len(current_boid.neighbourhood)>0:    
+        for b in current_boid.neighbourhood:
+            v = v + b.position
+        v = v/len(current_boid.neighbourhood)
+    return (v - current_boid.position) / 100
 
 # boids try not to collide with other boids
 def separation(current_boid):
     v = np.zeros(3)
-    for b in current_boid.neighbourhood:
-        for i in range(3):
-            if abs(b.position[i] - current_boid.position[i]) < 5:
-                v[i] = v[i] - (b.position[i] - current_boid.position[i])
+    if len(current_boid.neighbourhood)>0:    
+        for b in current_boid.neighbourhood:
+            for i in range(3):
+                if abs(b.position[i] - current_boid.position[i]) < 5:
+                    v[i] = v[i] - (b.position[i] - current_boid.position[i])
     return v
 
 # boids try to match velocity with near boids
 def alignment(current_boid):
     v = np.zeros(3)
-    for b in current_boid.neighbourhood:
-        v = np.add(v,b.velocity)
-        v = np.divide(v,len(current_boid.neighbourhood))
+    if len(current_boid.neighbourhood)>0:    
+        for b in current_boid.neighbourhood:
+            v = np.add(v,b.velocity)
+            v = v/len(current_boid.neighbourhood)
     return (v - current_boid.velocity)/10
 
 ## extended ruleset
@@ -144,6 +159,9 @@ def bound_position(current_boid):
         v[2] = -1 * factor
 
     return v
+
+def flock_to_goal(current_boid):
+    return (goal - current_boid.position) / 100
 
 
 ## helper functions
@@ -171,12 +189,15 @@ def limit_velocity(b):
 def main():
     init_boids()
     t = 0.0
+    global disperse
+
     while t < time:
-        t = round(t, 2) # round t for ease of use
- 
+        t = round(t, 3) # round t for ease of use
+    
+        if 100.0 <= t < 150.0:
+            disperse = True
 
         move_boids()
-        #print(round(t,2))
         # plot every second
         if t % plot_interval == 0.0:
             draw_boids(t)

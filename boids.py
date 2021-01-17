@@ -1,4 +1,3 @@
-#%%
 import numpy as np
 import random
 from mpl_toolkits.mplot3d import Axes3D
@@ -9,27 +8,33 @@ import matplotlib.pyplot as plt
 # speed updates: new_speed = old_speed + accel*dt
 
 # next steps:
-# 1: add limited field of view
+# 1: add limited field of view. V
 # 2: obstacles
 # 3: goal
-# 4: predator
+# 4: disperse/scatter
 
 # optional: turn rules on and off at runtime
 
-# simulation settings
+## simulation settings
+# size of field
 x_size = 100
 y_size = 100
 z_size = 100
+
 num_boids = 50
-time = 1000.0 # seconds
-dt = .1 # seconds
+time = 1000.0 # seconds, total simulation time
+dt = .1 # seconds, simulation timestep
+plot_interval = 1.0 # seconds
 
 boids = []
+
+scatter = False # allow for scattering behaviour
 
 # defining our boids
 class Boid:
     def __init__(self):
         # each boid has a position vector [x,y,z] and a velocity vector [x,y,z]
+        # each boid has a neighbourhood of boids it can perceive
         self.position = np.array([random.randint(0,x_size),random.randint(0,y_size),random.randint(0, z_size)])
         self.velocity = np.array([random.randint(-10,10),random.randint(-10,10),random.randint(-10,10)])
         self.neighbourhood = []
@@ -47,38 +52,42 @@ def init_boids():
 
 ## core functions
 # update visual
-def draw_boids():
+def draw_boids(t):
     ax.clear()
     ax.set(xlim=(-10,x_size+10), ylim=(-10,y_size+10), zlim=(-10,z_size+10))
     for b in boids:
         ax.quiver(b.position[0], b.position[1], b.position[2],\
             b.velocity[0],b.velocity[1],b.velocity[2], length=4, normalize=True)
+    timestring = str(t)
+    ax.text(0,0,0, timestring)
     plt.show(block = False)
     plt.pause(0.0001)
 
 
 # calculate new boid positions based on ruleset
 def move_boids():
+    #vector multipliers
+    m1 = 1
+    m2 = 1
+    m3 = 1
+    m4 = 1
+
     for b in boids:
         # determine boids' neighbourhood'
-        determine_neghbourhood(b)
+        determine_neighbourhood(b)
     for b in boids:
-        v1 = cohesion(b)
-        v2 = separation(b)
-        v3 = alignment(b)
-        v4 = bound_position(b)
+        v1 = m1 * cohesion(b)
+        v2 = m2 * separation(b)
+        v3 = m3 * alignment(b)
+        v4 = m4 * bound_position(b)
         b.velocity = b.velocity + (v1 + v2 + v3 + v4)*dt
+        b.velocity = limit_velocity(b)
         b.position = b.position + b.velocity*dt
 
-        # old boundary code
-        #limits = [x_size, y_size, z_size]
-        #for i in range(3):
-        #    b.position[i] = b.position[i] % limits[i]
-
 # determines which boids are within current_boid's range of perception
-def determine_neghbourhood(current_boid):
+def determine_neighbourhood(current_boid):
     neighbourhood = []
-    range = 20
+    range = 10
     for b in boids:
         if b != current_boid:
             #within range for x AND y AND z
@@ -92,35 +101,32 @@ def determine_neghbourhood(current_boid):
 def cohesion(current_boid):
     v = np.zeros(3)
     for b in current_boid.neighbourhood:
-        if b != current_boid:
-            v = v + b.position - current_boid.position
-        v = v/(num_boids-1)
-    return v
+        v = np.add(v,b.position)
+        v = np.divide(v,(len(current_boid.neighbourhood)))
+    return (v - current_boid.position) / 50
 
 # boids try not to collide with other boids
 def separation(current_boid):
     v = np.zeros(3)
     for b in current_boid.neighbourhood:
-        if b != current_boid:
-            for i in range(3):
-                if abs(b.position[i] - current_boid.position[i]) < 1:
-                    v = v - (b.position[i] - current_boid.position[i])
+        for i in range(3):
+            if abs(b.position[i] - current_boid.position[i]) < 5:
+                v[i] = v[i] - (b.position[i] - current_boid.position[i])
     return v
 
-# boids try to match velocity/direction with near boids
+# boids try to match velocity with near boids
 def alignment(current_boid):
     v = np.zeros(3)
     for b in current_boid.neighbourhood:
-        if b != current_boid:
-            v = v + b.velocity
-        v = v / (num_boids-1)
+        v = np.add(v,b.velocity)
+        v = np.divide(v,len(current_boid.neighbourhood))
     return (v - current_boid.velocity)/10
 
 ## extended ruleset
 # change course to stay inside world
 def bound_position(current_boid):
     v = np.zeros(3)
-    factor = 3
+    factor = 10 # steering influence level
 
     if current_boid.position[0] < 0.0:
         v[0] = factor
@@ -151,20 +157,29 @@ def in_range(b1, b2, r):
         return False
     return True
 
+def limit_velocity(b):
+    vlim = 10
+    v = b.velocity
+    
+    for i in range(0,3):
+        if abs(b.velocity[i]) > vlim:
+            v[i] = (b.velocity[i] / abs(b.velocity[i])) * vlim 
+    return v
 
 
 ## main
 def main():
-    boids = init_boids()
-    for b in boids:
-        print(b.velocity)
-    
-    t=0.0
+    init_boids()
+    t = 0.0
     while t < time:
+        t = round(t, 2) # round t for ease of use
+ 
+
         move_boids()
-        print(round(t,2))
-        if round(t, 2)%1.0 == 0.0:
-            draw_boids()
+        #print(round(t,2))
+        # plot every second
+        if t % plot_interval == 0.0:
+            draw_boids(t)
         t = t+dt
 
 if __name__ == "__main__":

@@ -27,17 +27,18 @@ y_size = 200
 z_size = 200
 
 num_boids = 50
-time = 1000.0 # seconds, total simulation time
+time = 500.0 # seconds, total simulation time
 dt = .05 # seconds, simulation timestep
 plot_interval = 1.0 # seconds
 
 boids = []
 boids_old = []
+
 goal = np.ones(3)*x_size/2
 print(goal)
 
-cohesion_area = 30
-alignment_area = 15
+cohesion_area = 50
+alignment_area = 25
 separation_area = 5
 
 disperse = False # allow for scattering behaviour if true
@@ -67,7 +68,7 @@ def init_boids():
 def draw_boids(t):
     ax.clear()
     ax.set(xlim=(-10,x_size+10), ylim=(-10,y_size+10), zlim=(-10,z_size+10))
-    ax.scatter(goal[0], goal[1], goal[2], color="green")
+    #ax.scatter(goal[0], goal[1], goal[2], color="green")
     for b in boids:
         ax.quiver(b.position[0], b.position[1], b.position[2],\
             b.velocity[0],b.velocity[1],b.velocity[2], length=4, normalize=True)
@@ -80,7 +81,7 @@ def draw_boids(t):
 # calculate new boid positions based on ruleset
 def move_boids():
     #vector multipliers
-    m1 = 0.5 # cohesion
+    m1 = 1.0 # cohesion
     m2 = 1.0 # separation
     m3 = 2.0 # alignment
     m4 = 1.0 # bound position
@@ -97,7 +98,7 @@ def move_boids():
         v5 = m5 * flock_to_goal(b)
 
 
-        b.velocity = b.velocity + (v1 + v2 + v3 + v4 + v5)*dt
+        b.velocity = b.velocity + (v1 + v2 + v3 + v4)*dt
         b.velocity = limit_velocity(b)
         b.position = b.position + b.velocity*dt
 
@@ -111,11 +112,13 @@ def cohesion(current_boid):
     num = 0
     for b in boids_old:
         if in_range(current_boid, b, cohesion_area):
-            v = v + b.position
+            v = v + b.position - current_boid.position
             num = num + 1
-        if num > 0:
-            v = v/num
-    return (v - current_boid.position) / 100
+    
+    if num > 0:
+        v = v/num
+
+    return v/100
 
 # boids try not to collide with other boids
 def separation(current_boid):
@@ -130,11 +133,13 @@ def alignment(current_boid):
     v = np.zeros(3)
     num = 0    
     for b in boids_old:
-        if in_range(current_boid,b, alignment_area):
-            v = np.add(v,b.velocity)
+        if in_range(current_boid, b, alignment_area):
+            v = v + b.velocity
             num = num + 1
-        if num > 0:
-            v = v/num
+
+    if num > 0:
+        v = v/num
+
     return (v - current_boid.velocity)/8
 
 ## extended ruleset
@@ -167,9 +172,8 @@ def flock_to_goal(current_boid):
 ## helper functions
 # checks if boid is within range r of other boid
 def in_range(b1, b2, r):
-    #if b1 == b2:
-        #print("self found")
-        #return False
+    if abs(b1.position[0]-b2.position[0]) == 0 and abs(b1.position[1]-b2.position[1]) == 0 and abs(b1.position[2]-b2.position[2]) == 0:
+        return False
     if abs(b1.position[0]-b2.position[0]) > r:
         return False
     if abs(b1.position[1]-b2.position[1]) > r:
@@ -192,7 +196,6 @@ def copy_boids():
     boids_old = []
     for b in boids:
         boids_old.append(b)
-    #print(boids_old[0])
 
 
 ## main

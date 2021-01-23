@@ -2,20 +2,21 @@ import numpy as np
 import random
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
-#import copy
-import jsons
+
 #from matplotlib import animation
 
 # position updates: new_pos = old_pos + speed*dt
 # speed updates: new_speed = old_speed + accel*dt
 
-# use deepcopy for speed&pos update
+# use deepcopy for speed&pos update -> own copy func
+# minimum speed, halting midair seems impossible
 
 # next steps:
 # 1: add limited field of view. V
 # 2: obstacles
 # 3: goal V
 # 4: disperse/scatter V
+
 
 # optional: turn rules on and off at runtime
 
@@ -35,6 +36,9 @@ boids_old = []
 goal = np.ones(3)*x_size/2
 print(goal)
 
+cohesion_area = 20
+alignment_area = 10
+separation_area = 5
 
 disperse = False # allow for scattering behaviour if true
 
@@ -45,7 +49,7 @@ class Boid:
         # each boid has a neighbourhood of boids it can perceive
         self.position = np.array([random.randint(0,x_size),random.randint(0,y_size),random.randint(0, z_size)])
         self.velocity = np.array([random.randint(-10,10),random.randint(-10,10),random.randint(-10,10)])
-        self.neighbourhood = []
+        #self.neighbourhood = []
 
 # setting up plot stuff
 plt.ion()
@@ -54,11 +58,10 @@ ax = fig.gca(projection='3d')
 
 # initialize all boids        
 def init_boids():
-    global boids_old
     while len(boids) < num_boids:
         b = Boid()
         boids.append(b)
-        boids_old.append(b)
+    copy_boids()
 
 
 ## core functions
@@ -88,9 +91,9 @@ def move_boids():
     if disperse: # if disperse flip m1
         m1 = m1*-1
 
-    for b in boids:
+    #for b in boids:
         # determine boids' neighbourhood'
-        determine_neighbourhood(b)
+        #determine_neighbourhood(b)
 
     for b in boids:
         v1 = m1 * cohesion(b)
@@ -100,7 +103,7 @@ def move_boids():
         v5 = m5 * flock_to_goal(b)
 
 
-        b.velocity = b.velocity + (v1 + v2 + v3 + v4 + v5)*dt
+        b.velocity = b.velocity + (v1 + v2 + v3 + v4)*dt
         b.velocity = limit_velocity(b)
         b.position = b.position + b.velocity*dt
 
@@ -108,45 +111,43 @@ def move_boids():
 
 
 # determines which boids are within current_boid's range of perception
-def determine_neighbourhood(current_boid):
-    neighbourhood = []
-    range = 20
-    for b in boids_old:
-        if b != current_boid:
+# def determine_neighbourhood(current_boid):
+    #neighbourhood = []
+    #range = 50
+    #for b in boids_old:
+        #if b != current_boid:
             #within range for x AND y AND z
-            if in_range(current_boid, b, range):
-                neighbourhood.append(b)
-    current_boid.neighbourhood = neighbourhood
+            #if in_range(current_boid, b, range):
+                #neighbourhood.append(b)
+    #current_boid.neighbourhood = neighbourhood
 
 ## basic ruleset
 # boids try to fly to the centre of mass of neighbouring boids
 # metre/second/pos_diff
 def cohesion(current_boid):
     v = np.zeros(3)
-    if len(current_boid.neighbourhood)>0:    
-        for b in current_boid.neighbourhood:
+    for b in boids_old:
+        if in_range(current_boid, b, cohesion_area):
             v = v + b.position
-        v = v/len(current_boid.neighbourhood)
+        v = v/len(boids_old)
     return (v - current_boid.position) / 100
 
 # boids try not to collide with other boids
 def separation(current_boid):
-    v = np.zeros(3)
-    if len(current_boid.neighbourhood)>0:    
-        for b in current_boid.neighbourhood:
-            for i in range(3):
-                if abs(b.position[i] - current_boid.position[i]) < 5:
-                    v[i] = v[i] - (b.position[i] - current_boid.position[i])
+    v = np.zeros(3)   
+    for b in boids_old:
+        if in_range(current_boid, b, separation_area):
+            v = v - (b.position - current_boid.position)
     return v
 
 # boids try to match velocity with near boids
 def alignment(current_boid):
-    v = np.zeros(3)
-    if len(current_boid.neighbourhood)>0:    
-        for b in current_boid.neighbourhood:
+    v = np.zeros(3)    
+    for b in boids_old:
+        if in_range(current_boid,b, alignment_area):
             v = np.add(v,b.velocity)
-            v = v/len(current_boid.neighbourhood)
-    return (v - current_boid.velocity)/4
+            v = v/len(boids_old)
+    return (v - current_boid.velocity)/8
 
 ## extended ruleset
 # change course to stay inside world
@@ -196,9 +197,12 @@ def limit_velocity(b):
     return v
 
 def copy_boids():
-    for b, o in zip(boids, boids_old):
-        o.position = b.position
-        o.velocity = b.velocity
+    global boids_old
+    boids_old = []
+    for b in boids:
+        boids_old.append(b)
+    #print(boids_old[0])
+
 
 
 ## main
@@ -206,14 +210,11 @@ def main():
     init_boids()
     t = 0.0
     global disperse
-    global boids_old
-
     while t < time:
         t = round(t, 3) # round t for ease of use
-    
+        #print(boids_old==boids)
         if 100.0 <= t < 150.0:
             disperse = True
-
         move_boids()
         # plot every second
         if t % plot_interval == 0.0:

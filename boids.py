@@ -20,6 +20,7 @@ import math
 # 2: obstacles
 # 3: goal V
 # 4: disperse/scatter V
+# predator
 
 
 # optional: turn rules on and off at runtime
@@ -34,12 +35,14 @@ dt = 0.05 # seconds, simulation timestep
 plot_interval = 0.1 # seconds
 t = 0.0
 
-goal = np.ones(3)*field_size/2
+target = np.ones(3)*field_size/2
 #print(goal)
 
 cohesion_area = 60
 alignment_area = 30
 separation_area = 6
+
+predator_area = 20
 
 start_speed = 50
 vlim = 60
@@ -53,6 +56,11 @@ velocity = np.random.uniform(start_speed*-1, start_speed, (num_boids,3))
 
 position_old = copy.deepcopy(position)
 velocity_old = copy.deepcopy(velocity)
+
+pos_predator = np.zeros((1,3))
+vel_predator = np.ones((1,3)) * 50
+
+
 
 # setting up plot stuff
 plt.ion()
@@ -68,6 +76,8 @@ def draw_boids(t):
     for b in range (num_boids):
         ax.quiver(position[b,0], position[b,1], position[b,2],\
             velocity[b,0],velocity[b,1],velocity[b,2], length=4, normalize=True)
+    ax.quiver(pos_predator[0,0], pos_predator[0,1], pos_predator[0,2],\
+        vel_predator[0,0], vel_predator[0,1], vel_predator[0,2], length=7, normalize = True, color = "red")
     timestring = str(t)
     ax.text(0,0,0, timestring)
 
@@ -84,8 +94,9 @@ def move_boids():
     m1 = 100.0 # cohesion
     m2 = 8.0 # separation
     m3 = 1.0 # alignment
-    m4 = 100.0 # bound position
+    m4 = 20.0 # bound position
     m5 = 1.0 # flock to goal
+    m6 = 1.0 # flee from predator
 
     if disperse: # if disperse flip m1
         m1 = m1*-1
@@ -96,18 +107,20 @@ def move_boids():
         v3 = np.zeros(3)
         v4 = np.zeros(3)
         v5 = np.zeros(3)
+        v6 = np.zeros(3)
 
         v1 = m1 * cohesion(b)
         v2 = m2 * separation(b)
         v3 = m3 * alignment(b)
         v4 = m4 * bound_position(b)
         if t < 25:
-            v5 = m5 * flock_to_goal(b)
+            v5 = m5 * flock_to_goal(b, target)
+        v6 = m6 * flee_from_predator(b)
 
 
-        velocity[b] = velocity[b] + (v1 + v2 + v3 + v4)*dt
+        velocity[b] = velocity_old[b] + (v1 + v2 + v3 + v4 + v6)*dt
         limit_velocity(b)
-        position[b] = position[b] + velocity[b]*dt
+        position[b] = position_old[b] + velocity[b]*dt
 
     copy_boids()
 
@@ -171,8 +184,53 @@ def bound_position(current_boid):
 
     return v
 
-def flock_to_goal(current_boid):
+def flock_to_goal(current_boid, goal):
     return (goal - position[current_boid]) / 100
+
+def flee_from_predator(current_boid):
+    v = np.zeros(3)
+    if abs(position[current_boid,0]-pos_predator[0,0]) > predator_area:
+        return v 
+    if abs(position[current_boid,1]-pos_predator[0,1]) > predator_area:
+        return v
+    if abs(position[current_boid,2]-pos_predator[0,2]) > predator_area:
+        return v
+    return -1 * flock_to_goal(current_boid, pos_predator)
+
+## predator functions
+def move_predator():
+    v1 = find_nearest_boid()
+    v2 = bound_predator(0)
+    vel_predator[0] = vel_predator[0] + v1
+    pos_predator [0] = pos_predator + vel_predator * dt
+
+def find_nearest_boid():
+    v = np.zeros(3)
+    for b in range(num_boids):
+        pass
+    return v
+
+def bound_predator(p):
+    v = np.zeros(3)
+    factor = 10 # steering influence level
+
+    if pos_predator[p,0] < 0.0:
+        v[0] = factor
+    elif pos_predator[p,0] > field_size:
+        v[0] = -1 * factor
+
+    if pos_predator[p,1] < 0.0:
+        v[1] = factor
+    elif pos_predator[p,1] > field_size:
+        v[1] = -1 * factor
+
+    if pos_predator[p,2] < 0.0:
+        v[2] = factor
+    elif pos_predator[p,2] > field_size:
+        v[2] = -1 * factor
+
+    return v
+
 
 
 ## helper functions
@@ -220,7 +278,7 @@ def main():
         #if 100.0 <= t < 150.0:
         #    disperse = True
         move_boids()
-        # plot every second
+        move_predator()
 
         if plot_time >= plot_interval:
             draw_boids(t)

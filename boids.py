@@ -201,7 +201,7 @@ def flee_from_predator(current_boid):
 def move_predator():
     v1 = find_nearest_boid()
     v2 = bound_predator(0)
-    vel_predator[0] = vel_predator[0] + v1
+    vel_predator[0] = vel_predator[0] + (v1 + v2) * dt
     pos_predator [0] = pos_predator + vel_predator * dt
 
 def find_nearest_boid():

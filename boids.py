@@ -1,8 +1,11 @@
 import numpy as np
 import random
 from mpl_toolkits.mplot3d import Axes3D
+import matplotlib
+matplotlib.use('TkAgg') # speed up plotting
 import matplotlib.pyplot as plt
 import copy
+import math
 
 #from matplotlib import animation
 
@@ -25,27 +28,28 @@ import copy
 # size of field
 field_size = 200
 
-num_boids = 50
-time = 500.0 # seconds, total simulation time
-dt = .05 # seconds, simulation timestep
-plot_interval = 1.0 # seconds
-
-boids = []
-boids_old = []
+num_boids = 100
+time = 150.0 # seconds, total simulation time
+dt = 0.05 # seconds, simulation timestep
+plot_interval = 0.1 # seconds
+t = 0.0
 
 goal = np.ones(3)*field_size/2
-print(goal)
+#print(goal)
 
-cohesion_area = 50
-alignment_area = 25
-separation_area = 5
+cohesion_area = 60
+alignment_area = 30
+separation_area = 6
 
-start_speed = 20
+start_speed = 50
+vlim = 60
+vmin = 10
 
 disperse = False # allow for scattering behaviour if true
 
 position = np.random.uniform(0.0, field_size,(num_boids, 3))
 velocity = np.random.uniform(start_speed*-1, start_speed, (num_boids,3))
+
 
 position_old = copy.deepcopy(position)
 velocity_old = copy.deepcopy(velocity)
@@ -66,6 +70,10 @@ def draw_boids(t):
             velocity[b,0],velocity[b,1],velocity[b,2], length=4, normalize=True)
     timestring = str(t)
     ax.text(0,0,0, timestring)
+
+    fname = 'Flock-%03.1f.png' % t
+    plt.savefig('images/'+fname)
+
     plt.show(block = False)
     plt.pause(0.0001)
 
@@ -73,25 +81,32 @@ def draw_boids(t):
 # calculate new boid positions based on ruleset
 def move_boids():
     #vector multipliers
-    m1 = 1.0 # cohesion
-    m2 = 1.0 # separation
-    m3 = 2.0 # alignment
-    m4 = 1.0 # bound position
+    m1 = 100.0 # cohesion
+    m2 = 8.0 # separation
+    m3 = 1.0 # alignment
+    m4 = 100.0 # bound position
     m5 = 1.0 # flock to goal
 
     if disperse: # if disperse flip m1
         m1 = m1*-1
 
     for b in range(num_boids):
+        v1 = np.zeros(3)
+        v2 = np.zeros(3)
+        v3 = np.zeros(3)
+        v4 = np.zeros(3)
+        v5 = np.zeros(3)
+
         v1 = m1 * cohesion(b)
         v2 = m2 * separation(b)
         v3 = m3 * alignment(b)
         v4 = m4 * bound_position(b)
-        v5 = m5 * flock_to_goal(b)
+        if t < 25:
+            v5 = m5 * flock_to_goal(b)
 
 
         velocity[b] = velocity[b] + (v1 + v2 + v3 + v4)*dt
-        velocity[b] = limit_velocity(b)
+        limit_velocity(b)
         position[b] = position[b] + velocity[b]*dt
 
     copy_boids()
@@ -102,9 +117,9 @@ def move_boids():
 def cohesion(current_boid):
     v = np.zeros(3)
     num = 0
-    for b in boids_old:
+    for b in range(num_boids):
         if in_range(current_boid, b, cohesion_area):
-            v = v + position[b] - position[current_boid]
+            v = v + position_old[b] - position[current_boid]
             num = num + 1
     
     if num > 0:
@@ -115,24 +130,23 @@ def cohesion(current_boid):
 # boids try not to collide with other boids
 def separation(current_boid):
     v = np.zeros(3)   
-    for b in boids_old:
+    for b in range(num_boids):
         if in_range(current_boid, b, separation_area):
-            v = v - (position[b] - position[current_boid])
+            v = v - (position_old[b] - position_old[current_boid])
     return v
 
 # boids try to match velocity with near boids
 def alignment(current_boid):
     v = np.zeros(3)
     num = 0    
-    for b in boids_old:
+    for b in range(num_boids):
         if in_range(current_boid, b, alignment_area):
-            v = v + velocity[b]
+            v = v + velocity_old[b]
             num = num + 1
-
     if num > 0:
         v = v/num
 
-    return (v - velocity[current_boid])/8
+    return v - velocity_old[current_boid]
 
 ## extended ruleset
 # change course to stay inside world
@@ -176,35 +190,42 @@ def in_range(b1, b2, r):
     return True
 
 def limit_velocity(b):
-    vlim = 10
-    v = velocity[b]
-    
+
     for i in range(0,3):
         if abs(velocity[b,i]) > vlim:
-            v[i] = (velocity[b,i] / abs(velocity[b,i])) * vlim 
-    return v
+            velocity[b,i] = (velocity[b,i] / abs(velocity[b,i])) * vlim
+        if abs(velocity[b,i]) < vmin:
+            velocity[b,i] = (velocity[b,i] / abs(velocity[b,i])) * vmin
 
 def copy_boids():
-    global boids_old
-    boids_old = []
-    for b in range (num_boids):
-        boids_old.append(b)
+    global position_old
+    global velocity_old
+    
+    position_old = copy.deepcopy(position)
+    velocity_old = copy.deepcopy(velocity)
+    #position_old = np.array(ujson.loads(ujson.dumps(position.tolist())))
+    #velocity_old = np.array(ujson.loads(ujson.dumps(velocity.tolist())))
 
 
 ## main
 def main():
     #init_boids()
-    t = 0.0
     global disperse
-    while t < time:
-        t = round(t, 3) # round t for ease of use
+    global t
+    plot_time = 0.0
+    while t <= time:
+        t = round(t, 2) # round t for ease of use
+        plot_time = round(plot_time, 2)
         #print(boids_old==boids)
-        if 100.0 <= t < 150.0:
-            disperse = True
+        #if 100.0 <= t < 150.0:
+        #    disperse = True
         move_boids()
         # plot every second
-        if t % plot_interval == 0.0:
+
+        if plot_time >= plot_interval:
             draw_boids(t)
+            plot_time = 0.0
+        plot_time = plot_time + dt
         t = t+dt
 
 if __name__ == "__main__":

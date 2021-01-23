@@ -58,7 +58,7 @@ position_old = copy.deepcopy(position)
 velocity_old = copy.deepcopy(velocity)
 
 pos_predator = np.zeros((1,3))
-vel_predator = np.ones((1,3)) * 50
+vel_predator = np.ones((1,3)) * 55
 
 
 
@@ -96,7 +96,7 @@ def move_boids():
     m3 = 1.0 # alignment
     m4 = 20.0 # bound position
     m5 = 1.0 # flock to goal
-    m6 = 1.0 # flee from predator
+    m6 = 10.0 # flee from predator
 
     if disperse: # if disperse flip m1
         m1 = m1*-1
@@ -200,7 +200,7 @@ def flee_from_predator(current_boid):
 ## predator functions
 def move_predator():
     v1 = find_nearest_boid()
-    v2 = bound_predator(0)
+    v2 = 20 * bound_predator(0)
     vel_predator[0] = vel_predator[0] + (v1 + v2) * dt
     pos_predator [0] = pos_predator + vel_predator * dt
 

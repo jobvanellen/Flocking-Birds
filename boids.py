@@ -2,6 +2,7 @@ import numpy as np
 import random
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
+import copy
 
 #from matplotlib import animation
 
@@ -22,9 +23,7 @@ import matplotlib.pyplot as plt
 
 ## simulation settings
 # size of field
-x_size = 200
-y_size = 200
-z_size = 200
+field_size = 200
 
 num_boids = 50
 time = 500.0 # seconds, total simulation time
@@ -34,44 +33,37 @@ plot_interval = 1.0 # seconds
 boids = []
 boids_old = []
 
-goal = np.ones(3)*x_size/2
+goal = np.ones(3)*field_size/2
 print(goal)
 
 cohesion_area = 50
 alignment_area = 25
 separation_area = 5
 
+start_speed = 20
+
 disperse = False # allow for scattering behaviour if true
 
-# defining our boids
-class Boid:
-    def __init__(self):
-        # each boid has a position vector [x,y,z] and a velocity vector [x,y,z]
-        self.position = np.array([random.randint(0,x_size),random.randint(0,y_size),random.randint(0, z_size)])
-        self.velocity = np.array([random.randint(-10,10),random.randint(-10,10),random.randint(-10,10)])
+position = np.random.uniform(0.0, field_size,(num_boids, 3))
+velocity = np.random.uniform(start_speed*-1, start_speed, (num_boids,3))
+
+position_old = copy.deepcopy(position)
+velocity_old = copy.deepcopy(velocity)
 
 # setting up plot stuff
 plt.ion()
 fig = plt.figure()
 ax = fig.gca(projection='3d')
 
-# initialize all boids        
-def init_boids():
-    while len(boids) < num_boids:
-        b = Boid()
-        boids.append(b)
-    copy_boids()
-
-
 ## core functions
 # update visual
 def draw_boids(t):
     ax.clear()
-    ax.set(xlim=(-10,x_size+10), ylim=(-10,y_size+10), zlim=(-10,z_size+10))
+    ax.set(xlim=(-10,field_size+10), ylim=(-10,field_size+10), zlim=(-10,field_size+10))
     #ax.scatter(goal[0], goal[1], goal[2], color="green")
-    for b in boids:
-        ax.quiver(b.position[0], b.position[1], b.position[2],\
-            b.velocity[0],b.velocity[1],b.velocity[2], length=4, normalize=True)
+    for b in range (num_boids):
+        ax.quiver(position[b,0], position[b,1], position[b,2],\
+            velocity[b,0],velocity[b,1],velocity[b,2], length=4, normalize=True)
     timestring = str(t)
     ax.text(0,0,0, timestring)
     plt.show(block = False)
@@ -90,7 +82,7 @@ def move_boids():
     if disperse: # if disperse flip m1
         m1 = m1*-1
 
-    for b in boids:
+    for b in range(num_boids):
         v1 = m1 * cohesion(b)
         v2 = m2 * separation(b)
         v3 = m3 * alignment(b)
@@ -98,9 +90,9 @@ def move_boids():
         v5 = m5 * flock_to_goal(b)
 
 
-        b.velocity = b.velocity + (v1 + v2 + v3 + v4)*dt
-        b.velocity = limit_velocity(b)
-        b.position = b.position + b.velocity*dt
+        velocity[b] = velocity[b] + (v1 + v2 + v3 + v4)*dt
+        velocity[b] = limit_velocity(b)
+        position[b] = position[b] + velocity[b]*dt
 
     copy_boids()
 
@@ -112,7 +104,7 @@ def cohesion(current_boid):
     num = 0
     for b in boids_old:
         if in_range(current_boid, b, cohesion_area):
-            v = v + b.position - current_boid.position
+            v = v + position[b] - position[current_boid]
             num = num + 1
     
     if num > 0:
@@ -125,7 +117,7 @@ def separation(current_boid):
     v = np.zeros(3)   
     for b in boids_old:
         if in_range(current_boid, b, separation_area):
-            v = v - (b.position - current_boid.position)
+            v = v - (position[b] - position[current_boid])
     return v
 
 # boids try to match velocity with near boids
@@ -134,13 +126,13 @@ def alignment(current_boid):
     num = 0    
     for b in boids_old:
         if in_range(current_boid, b, alignment_area):
-            v = v + b.velocity
+            v = v + velocity[b]
             num = num + 1
 
     if num > 0:
         v = v/num
 
-    return (v - current_boid.velocity)/8
+    return (v - velocity[current_boid])/8
 
 ## extended ruleset
 # change course to stay inside world
@@ -148,59 +140,60 @@ def bound_position(current_boid):
     v = np.zeros(3)
     factor = 10 # steering influence level
 
-    if current_boid.position[0] < 0.0:
+    if position[current_boid,0] < 0.0:
         v[0] = factor
-    elif current_boid.position[0] > x_size:
+    elif position[current_boid,0] > field_size:
         v[0] = -1 * factor
 
-    if current_boid.position[1] < 0.0:
+    if position[current_boid,1] < 0.0:
         v[1] = factor
-    elif current_boid.position[1] > y_size:
+    elif position[current_boid,1] > field_size:
         v[1] = -1 * factor
 
-    if current_boid.position[2] < 0.0:
+    if position[current_boid,2] < 0.0:
         v[2] = factor
-    elif current_boid.position[2] > z_size:
+    elif position[current_boid,2] > field_size:
         v[2] = -1 * factor
 
     return v
 
 def flock_to_goal(current_boid):
-    return (goal - current_boid.position) / 100
+    return (goal - position[current_boid]) / 100
 
 
 ## helper functions
 # checks if boid is within range r of other boid
 def in_range(b1, b2, r):
-    if abs(b1.position[0]-b2.position[0]) == 0 and abs(b1.position[1]-b2.position[1]) == 0 and abs(b1.position[2]-b2.position[2]) == 0:
+    #check self
+    if b1 == b2:
         return False
-    if abs(b1.position[0]-b2.position[0]) > r:
+    if abs(position[b1,0]-position_old[b2,0]) > r:
         return False
-    if abs(b1.position[1]-b2.position[1]) > r:
+    if abs(position[b1,1]-position_old[b2,1]) > r:
         return False
-    if abs(b1.position[2]-b2.position[2]) > r:
+    if abs(position[b1,2]-position_old[b2,2]) > r:
         return False
     return True
 
 def limit_velocity(b):
     vlim = 10
-    v = b.velocity
+    v = velocity[b]
     
     for i in range(0,3):
-        if abs(b.velocity[i]) > vlim:
-            v[i] = (b.velocity[i] / abs(b.velocity[i])) * vlim 
+        if abs(velocity[b,i]) > vlim:
+            v[i] = (velocity[b,i] / abs(velocity[b,i])) * vlim 
     return v
 
 def copy_boids():
     global boids_old
     boids_old = []
-    for b in boids:
+    for b in range (num_boids):
         boids_old.append(b)
 
 
 ## main
 def main():
-    init_boids()
+    #init_boids()
     t = 0.0
     global disperse
     while t < time:

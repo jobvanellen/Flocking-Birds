@@ -20,7 +20,7 @@ import math
 # 2: obstacles
 # 3: goal V
 # 4: disperse/scatter V
-# predator
+# 5: predator
 
 
 # optional: turn rules on and off at runtime
@@ -96,7 +96,7 @@ def move_boids():
     m3 = 1.0 # alignment
     m4 = 20.0 # bound position
     m5 = 1.0 # flock to goal
-    m6 = 10.0 # flee from predator
+    m6 = 200.0 # flee from predator
 
     if disperse: # if disperse flip m1
         m1 = m1*-1
@@ -165,7 +165,7 @@ def alignment(current_boid):
 # change course to stay inside world
 def bound_position(current_boid):
     v = np.zeros(3)
-    factor = 10 # steering influence level
+    factor = 50 # steering influence level
 
     if position[current_boid,0] < 0.0:
         v[0] = factor
@@ -195,20 +195,26 @@ def flee_from_predator(current_boid):
         return v
     if abs(position[current_boid,2]-pos_predator[0,2]) > predator_area:
         return v
-    return -1 * flock_to_goal(current_boid, pos_predator)
+    v = -1 * (pos_predator[0] - position[current_boid])
+    return v
 
 ## predator functions
 def move_predator():
-    v1 = find_nearest_boid()
+    v1 = -1*(find_nearest_boid()-position[0])*50
     v2 = 20 * bound_predator(0)
     vel_predator[0] = vel_predator[0] + (v1 + v2) * dt
+    limit_predator_velocity()
     pos_predator [0] = pos_predator + vel_predator * dt
 
 def find_nearest_boid():
-    v = np.zeros(3)
+    nearest_boid = np.ones(3)*field_size
+    d_nearest = math.sqrt(field_size**2+field_size**2+field_size**2)
     for b in range(num_boids):
-        pass
-    return v
+        d = math.sqrt((abs(position[b,0]-pos_predator[0,0])**2+abs(position[b,1]-pos_predator[0,1])**2+abs(position[b,2]-pos_predator[0,2])**2))
+        if d < d_nearest:
+            d_nearest = d
+            nearest_boid = position[b]
+    return nearest_boid
 
 def bound_predator(p):
     v = np.zeros(3)
@@ -231,6 +237,12 @@ def bound_predator(p):
 
     return v
 
+def limit_predator_velocity():
+    for i in range(0,3):
+        if abs(vel_predator[0,i]) > vlim:
+            vel_predator[0,i] = (vel_predator[0,i] / abs(vel_predator[0,i])) * vlim
+
+
 
 
 ## helper functions
@@ -248,7 +260,6 @@ def in_range(b1, b2, r):
     return True
 
 def limit_velocity(b):
-
     for i in range(0,3):
         if abs(velocity[b,i]) > vlim:
             velocity[b,i] = (velocity[b,i] / abs(velocity[b,i])) * vlim
@@ -278,7 +289,9 @@ def main():
         #if 100.0 <= t < 150.0:
         #    disperse = True
         move_boids()
-        move_predator()
+        #flocks seem to form around 25 s, intorduce predator
+        if t > 25.0:
+            move_predator()
 
         if plot_time >= plot_interval:
             draw_boids(t)
@@ -290,4 +303,3 @@ if __name__ == "__main__":
     main()
 
 
-# %%
